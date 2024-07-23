@@ -4,7 +4,7 @@ The NTRIP line client packet reads NMEA data from the serial port and receives R
 <br />
 
 ## NTRIP Client Usage
-### 1. Bash Script
+### 1. Usage: Bash Script
 Configure the `start_ntripclient.sh` and run below command on terminal:
 ```
 ./start_ntripclient.sh
@@ -12,7 +12,7 @@ Configure the `start_ntripclient.sh` and run below command on terminal:
 
 <br />
 
-### 2. Line Arguments
+### 2. Usage: Line Arguments
 Call the program with following arguments:  
 ```
 python3 ntripclient -p serial_port -b serial_baudrate -S ntrip_server ...
