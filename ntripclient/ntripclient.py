@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
+import time
 import socket
 import base64
 import select
-
+import threading
 
 class NTRIPClient():
     def __init__(self, ntrip_server, ntrip_port, ntrip_version, mount_point, username, password):
@@ -12,6 +13,9 @@ class NTRIPClient():
         self.ntrip_port = ntrip_port
         self.ntrip_version = ntrip_version
         self.mount_point = mount_point
+
+        self.threads = []       # Thread list
+        self.running = False    # Thread control flag
 
         self.NTRIP_VERSION = [
             "Ntrip/1.0",
@@ -43,7 +47,7 @@ class NTRIPClient():
                     f"Ntrip-Version: {self.NTRIP_VERSION[1]}\r\n"
                 )
             else:
-                raise Exception("Error: Invalid NTRIP version.")
+                raise Exception("Error: Invalid NTRIP version")
         else:
             self.request_header = (
                 f"GET /{self.mount_point} HTTP/1.0\r\n"
@@ -64,14 +68,14 @@ class NTRIPClient():
         try:
             self.server_socket.connect((self.ntrip_server, self.ntrip_port))
         except Exception as e:
-            print(f"Failed to connect socket to server at http://{self.ntrip_server}:{self.ntrip_port}")
+            print(f"[ERROR] Failed to connect socket to server at http://{self.ntrip_server}:{self.ntrip_port}")
             raise Exception(f"Exception: {e}")
 
         # Send the HTTP Request
         try:
             self.server_socket.sendall(self.request_header.encode('utf-8'))
         except:
-            print(f"Failed to send request to server at http://{self.ntrip_server}:{self.ntrip_port}")
+            print(f"[ERROR] Failed to send request to server at http://{self.ntrip_server}:{self.ntrip_port}")
             raise Exception(f"Exception: {e}")
 
         # Get the response from the server
@@ -84,24 +88,24 @@ class NTRIPClient():
         
         # Check the response and give some debug hints
         if any(success in response for success in self.SUCCESS_RESPONSES):
-            print(f"Connected to http://{self.ntrip_server}:{self.ntrip_port}/{self.mount_point}")
+            print(f"Connected to http://{self.ntrip_server}:{self.ntrip_port}/{self.mount_point}\n")
         else:
             if b"SOURCETABLE 200 OK" in response:
-                print("Received sourcetable response from the server. This probably means the mountpoint specified is not valid")
+                print("[ERROR] Received sourcetable response from the server. This probably means the mountpoint specified is not valid.")
             elif b"401" in response:
-                print("Received unauthorized response from the server. Check your username, password and mountpoint to make sure they are correct.")
+                print("[ERROR] Received unauthorized response from the server. Check your username, password and mountpoint to make sure they are correct.")
             else:
-                print("Received unknown error from the server.")               
+                print("[ERROR] Received unknown error from the server.")               
 
-            raise Exception(f"Failed to connect to http://{self.ntrip_server}:{self.ntrip_port}/{self.mount_point}")
+            raise Exception(f"[ERROR] Failed to connect to http://{self.ntrip_server}:{self.ntrip_port}/{self.mount_point}")
 
     def disconnect(self):
         try:
             if self.server_socket:
                 self.server_socket.shutdown(socket.SHUT_RDWR)
-                print(f"Socket is shutdown.")
+                print(f"Socket is shutdown")
         except Exception as e:
-            print('Encountered exception when shutting down the socket. This can likely be ignored')
+            print('[ERROR] Encountered exception when shutting down the socket. This can likely be ignored.')
             print(f'Exception: {e}')
 
         try:
@@ -109,30 +113,70 @@ class NTRIPClient():
                 self.server_socket.close()
                 print(f"Socket is closed.")
         except Exception as e:
-            print('Encountered exception when closing the socket. This can likely be ignored')
+            print('[ERROR] Encountered exception when closing the socket. This can likely be ignored.')
             print(f'Exception: {e}')
 
     def send_nmea(self, nmea):
         try:
             self.server_socket.sendall(nmea.encode('utf-8') + b'\r\n')
         except Exception as e:
-            print('Failed to send NMEA to NTRIP server')
+            print('[ERROR] Failed to send NMEA to NTRIP server')
             print(f'Exception: {e}')
 
     def receive_rtcm(self):
         # Check if there is any data available on the socket
         read_sockets, _, _ = select.select([self.server_socket], [], [], 0)
         if not read_sockets:
-            print('Socket is EMPTY')
+            #print('Socket is EMPTY')
             return []
 
         try:
             rtcm = self.server_socket.recv(1024)
             return rtcm
         except socket.timeout:
-            print('Socket timeout.')
+            print('[ERROR] Socket timeout')
             return None
         except Exception as e:
-            print('Failed to receive RTCM from NTRIP server')
+            print('[ERROR] Failed to receive RTCM from NTRIP server')
             print(f'Exception: {e}')
             return None
+
+    # Starting both threads
+    def start_threads(self, serial_port):
+        self.running = True
+
+        # NMEA thread
+        t1 = threading.Thread(target=self._nmea_loop, args=(serial_port,), daemon=True)
+        t1.start()
+        self.threads.append(t1)
+
+        # RTCM thread
+        t2 = threading.Thread(target=self._rtcm_loop, args=(serial_port,), daemon=True)
+        t2.start()
+        self.threads.append(t2)
+
+    # Sending NMEA thread
+    def _nmea_loop(self, serial_port):
+        while self.running:
+            if serial_port.serial.in_waiting:
+                nmea_line = serial_port.readline()
+                if nmea_line.startswith('$GNGGA'):
+                    self.send_nmea(nmea_line)
+                    print(f"[NMEA Sent] {nmea_line}")
+            time.sleep(0.01)
+
+    # Getting RTCM thread
+    def _rtcm_loop(self, serial_port):
+        while self.running:
+            data = self.receive_rtcm()
+            if data:
+                serial_port.write(data)
+                print(f"[RTCM Received] {len(data)} bytes")
+            time.sleep(0.01)
+            
+    # Stop threads
+    def stop_threads(self):
+        self.running = False
+        for t in self.threads:
+            t.join(timeout=1)  # Wait for threads to finish
+        self.threads = []

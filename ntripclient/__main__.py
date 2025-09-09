@@ -8,38 +8,19 @@ from ntripclient import NTRIPClient
 
 def main(serial_port, serial_baudrate, serial_timeout, ntrip_server, ntrip_port, ntrip_version, mountpoint, username, password):
     # Set serial
-    serial = SerialCom(serial_port, serial_baudrate, timeout=serial_timeout)
+    gnss_serial = SerialCom(serial_port, serial_baudrate, timeout=serial_timeout)
 
     # Set NTRIP client
     ntripclient = NTRIPClient(ntrip_server, ntrip_port, ntrip_version, mountpoint, username, password)
 
     try:
-        serial.open()
+        gnss_serial.open()
         ntripclient.connect()
+        ntripclient.start_threads(gnss_serial)
 
+        # Main thread loop
         while True:
-            # Read NMEA data from serial port
-            nmea_data = serial.readline()
-            
-            if nmea_data and nmea_data.startswith('$GNGGA'):
-                print(f"\nNMEA Data: {nmea_data}")
-
-                # Send NMEA data to NTRIP
-                ntripclient.send_nmea(nmea_data)
-            
-                # Get RTCM data from NTRIP server
-                rtcm_data = ntripclient.receive_rtcm()
-            
-                if rtcm_data:
-                    print("\nReceived RTCM data from NTRIP server.")
-                    print(f"RTCM Data: {rtcm_data}")
-
-                    # Write RTCM data to serial port
-                    serial.write(rtcm_data)
-            else:
-                print("Invalid NMEA data.")
-            
-            #time.sleep(0.5)
+            time.sleep(1)
 
     except Exception as e:
         print(f"Error: {e}")
@@ -48,12 +29,12 @@ def main(serial_port, serial_baudrate, serial_timeout, ntrip_server, ntrip_port,
         print(f"KeyboardInterrupt")
 
     finally:
-        if (serial.serial and serial.serial.is_open):
-            serial.close()
-        
         if (ntripclient.server_socket):
-            ntripclient.disconnect()
+            ntripclient.stop_threads()
         
+        if (gnss_serial.serial and gnss_serial.serial.is_open):
+            gnss_serial.close()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process some integers.")

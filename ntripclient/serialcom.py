@@ -14,7 +14,7 @@ class SerialCom:
         try:
             self.serial = serial.Serial(port=self.port, baudrate=self.baudrate, timeout=self.timeout)
             if self.serial.is_open:
-                print(f"Serial port is opened: {self.port} @ {self.baudrate} baudrate\n")
+                print(f"Serial port {self.port} is opened at {self.baudrate} baudrate\n")
         except serial.SerialException as e:
             raise Exception(f"Error opening serial port: {e}")
 

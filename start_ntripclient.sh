@@ -4,17 +4,19 @@
 #                     CONFIGURATIONS
 #----------------------------------------------------------
 # Serial Communication Configurations
-SERIAL_PORT="/dev/ttyUSB0"       # Serial port name
-SERIAL_BAUDRATE=115200           # Serial baudrate
+#----------------------------------------------------------
+SERIAL_PORT="/dev/ttyUSB0"       # Serial port name of the GNSS receiver
+SERIAL_BAUDRATE=115200           # Serial baudrate of the GNSS receiver
 SERIAL_TIMEOUT=1                 # Serial timeout
-
+#----------------------------------------------------------
 # NTRIP Client Configurations
-NTRIP_SERVER="www.euref-ip.net"  # NTRIP server
-NTRIP_PORT=2101                  # NTRIP port
-NTRIP_VERSION="Ntrip/1.0"        # NTRIP version
+#----------------------------------------------------------
+NTRIP_SERVER="www.euref-ip.net"  # NTRIP server/caster IP address
+NTRIP_PORT=2101                  # NTRIP server/caster port
+NTRIP_VERSION="Ntrip/1.0"        # NTRIP version (use 1 for Ntrip/1.0 and use 2 for Ntrip/2.0)
 MOUNTPOINT="M0uNtp0iNt"          # NTRIP mountpoint
-USERNAME="username"              # NTRIP server username
-PASSWORD="password"              # NTRIP server password
+USERNAME="username"              # NTRIP server/caster username
+PASSWORD="password"              # NTRIP server/caster password
 #----------------------------------------------------------
 
 
